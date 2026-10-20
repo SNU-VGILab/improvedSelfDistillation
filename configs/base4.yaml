@@ -1,0 +1,50 @@
+output_dir: './outputs'
+
+data:
+  data_path: './buffers/data/sdvae_f8c4/train_256'
+  fid_reference_file: './buffers/refs/in1k256_fid_ref.npz'
+  image_size: 256
+  num_classes: 1000
+  num_workers: 8
+  latent_norm: True
+  latent_multiplier: 1.0
+
+vae:
+  type: 'sdvae_f8c4'
+  downsample_ratio: 8
+
+model:
+  type: FlowMapTiT-B/4
+  in_chans: 4
+
+train:
+  load_opt: False
+  max_steps: 800000
+  global_batch_size: 256
+  gradient_accumulation_steps: 1
+  global_seed: 0
+  log_every: 100
+  ckpt_every: 10000
+  ckpt_legacy: 100000
+  ema_decay: 0.99995
+
+optimizer:
+  type: 'AdamW'
+  lr: 0.0001
+  weight_decay: 0.0
+  beta1: 0.9
+  beta2: 0.999
+
+method:
+  type: isd
+  transport: TrigFlow
+  label_dropout: 0.1
+  p: 1.0
+  use_jvp: False
+  precfg: 5.0
+
+sample:
+  sampling_steps: 2
+  per_batch_size: 96
+  fid_sample_num: 10000
+  demos: [975, 3, 207, 387, 388, 88, 979, 279]
