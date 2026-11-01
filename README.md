@@ -1,7 +1,16 @@
 <div align="center">
-  <h1>Stabilizing Consistency Training: A Flow Map Analysis and Self-Distillation</h1>
+  <h1>[TMLR 2026] Stabilizing Consistency Training: A Flow Map Analysis and Self-Distillation</h1>
   <a href="https://arxiv.org/abs/2601.22679">
     <img alt="arXiv" src="https://img.shields.io/badge/arXiv-2601.22679-b31b1b" />
+  </a>
+  <a href="https://openreview.net/forum?id=Qx2FrHDVzp">
+    <img alt="TMLR" src="https://img.shields.io/badge/TMLR-OpenReview-8c1b13" />
+  </a>
+  <a href="https://snu-vgilab.github.io/improvedSelfDistillation/">
+    <img alt="Project Page" src="https://img.shields.io/badge/Project%20Page-iSD-00B894" />
+  </a>
+  <a href="https://huggingface.co/YoungJoong/improvedSelfDistillation">
+    <img alt="Hugging Face" src="https://img.shields.io/badge/Weights-Hugging%20Face-FFD21E" />
   </a>
   <a href="#citation">
     <img alt="BibTeX" src="https://img.shields.io/badge/Citation-BibTeX-8250df" />
@@ -97,13 +106,13 @@ This repository is mainly based on [LINs-Lab/UCGM](https://github.com/LINs-lab/U
 ## Citation
 
 ```bibtex
-@misc{kim2026stabilizingconsistencytrainingflow,
-      title={Stabilizing Consistency Training: A Flow Map Analysis and Self-Distillation},
-      author={Youngjoong Kim and Duhoe Kim and Woosung Kim and Jaesik Park},
-      year={2026},
-      eprint={2601.22679},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG},
-      url={https://arxiv.org/abs/2601.22679},
+@article{kim2026stabilizing,
+  title={Stabilizing Consistency Training: A Flow Map Analysis and Self-Distillation},
+  author={YoungJoong Kim and Duhoe Kim and Woosung Kim and Jaesik Park},
+  journal={Transactions on Machine Learning Research},
+  issn={2835-8856},
+  year={2026},
+  url={https://openreview.net/forum?id=Qx2FrHDVzp},
+  note={}
 }
 ```
