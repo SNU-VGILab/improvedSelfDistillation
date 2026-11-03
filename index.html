@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Stabilizing Consistency Training: A Flow Map Analysis and Self-Distillation (TMLR 2026).">
+  <meta name="keywords" content="consistency models, flow map, self-distillation, iSD, few-step generation">
+  <title>Stabilizing Consistency Training</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Castoro&family=Noto+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.9.4/css/bulma.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/academicons/1.9.4/css/academicons.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+  <link rel="stylesheet" href="static/css/index.css">
+
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+  <script defer src="static/js/charts.js"></script>
+  <script defer src="static/js/index.js"></script>
+</head>
+<body>
+
+<!-- ================================================================ HERO -->
+<section class="hero">
+  <div class="hero-body">
+    <div class="container is-max-desktop has-text-centered">
+      <p class="venue">Transactions on Machine Learning Research (TMLR), 2026</p>
+      <h1 class="title is-1 publication-title">Stabilizing Consistency Training:<br>A Flow Map Analysis and Self-Distillation</h1>
+      <div class="publication-authors">
+        <span class="author-block">Youngjoong Kim,</span>
+        <span class="author-block">Duhoe Kim,</span>
+        <span class="author-block">Woosung Kim,</span>
+        <span class="author-block"><a href="mailto:jaesik.park@snu.ac.kr">Jaesik Park</a><sup>†</sup></span>
+      </div>
+      <div class="publication-affil">Seoul National University</div>
+      <div class="publication-note"><sup>†</sup>Corresponding author</div>
+
+      <div class="publication-links">
+        <a class="link-pill" href="https://openreview.net/forum?id=Qx2FrHDVzp" target="_blank" rel="noopener">
+          <i class="ai ai-obp" aria-hidden="true"></i><span>OpenReview</span>
+        </a>
+        <a class="link-pill" href="https://arxiv.org/abs/2601.22679" target="_blank" rel="noopener">
+          <i class="ai ai-arxiv" aria-hidden="true"></i><span>arXiv</span>
+        </a>
+        <a class="link-pill" href="https://github.com/SNU-VGILab/improvedSelfDistillation" target="_blank" rel="noopener">
+          <i class="fab fa-github" aria-hidden="true"></i><span>Code</span>
+        </a>
+        <a class="link-pill" href="https://huggingface.co/YoungJoong/improvedSelfDistillation" target="_blank" rel="noopener">
+          <span class="hf-icon" aria-hidden="true">🤗</span><span>Hugging Face</span>
+        </a>
+        <a class="link-pill" href="#bibtex">
+          <i class="fas fa-quote-right" aria-hidden="true"></i><span>BibTeX</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================ TEASER (Fig. 1) -->
+<section class="teaser">
+  <div class="container is-max-widescreen">
+    <figure class="fig1-wrap" id="fig1" data-fallback="static/img/A_intro.png">
+      <div class="fig1-stage" aria-hidden="true"></div>
+      <div class="fig1-bar">
+        <ol class="fig1-steps" aria-hidden="true">
+          <li>Consistency Training</li>
+          <li>+ Relax Time-condition</li>
+          <li>+ Self-Distillation</li>
+          <li>+ improved Self-Distillation</li>
+        </ol>
+        <button class="ctl-btn fig1-replay" type="button" aria-label="Replay"><i class="fas fa-rotate-right" aria-hidden="true"></i><span>Replay</span></button>
+      </div>
+      <figcaption class="caption">
+        <span class="cap-num">Figure 1.</span> From consistency training to improved Self-Distillation. Consistency training learns a mapping over conditional velocity, often suffering from training instability. Relaxing the time condition mitigates this instability, and self-distillation aligns a target with the marginal velocity field. We reformulate the objective and incorporate classifier-free guidance (iSD-T), further stabilizing training and improving reproducibility.
+      </figcaption>
+    </figure>
+  </div>
+</section>
+
+<nav class="toc" aria-label="Sections">
+  <div class="container is-max-desktop">
+    <a href="#abstract">Abstract</a>
+    <a href="#analysis">Analysis</a>
+    <a href="#method">Method</a>
+    <a href="#experiments">Experiments</a>
+    <a href="#bibtex">BibTeX</a>
+  </div>
+</nav>
+
+<!-- ================================================================ ABSTRACT -->
+<section class="section" id="abstract">
+  <div class="container is-max-desktop">
+    <h2 class="sec-title">Abstract</h2>
+    <div class="prose abstract">
+      <p>Consistency models have been proposed for fast generative modeling, achieving results competitive with diffusion and flow models. However, these methods exhibit instability and limited reproducibility when training from scratch, motivating subsequent work to explain and stabilize these issues. While these efforts have provided valuable insights, the explanations remain fragmented, and the theoretical relationships remain unclear. In this work, we provide a theoretical examination of consistency models by analyzing them from a flow map-based perspective. This joint analysis clarifies how training and convergence behavior can give rise to degenerate solutions. Building on these insights, we revisit self-distillation as a practical remedy for certain forms of suboptimal convergence. To avoid excessive gradient norms during its optimization, we reformulate its objective empirically, yielding <em>improved Self-Distillation (iSD)</em>. We further extend iSD with training-time classifier-free guidance, yielding iSD-T, which improves performance and reproducibility in the studied settings. We demonstrate that iSD extends beyond image generation to diffusion-based policy learning, without reliance on pretrained diffusion models for initialization.</p>
+    </div>
+
+    <figure class="preview reveal" id="preview">
+      <div class="pv-row">
+        <div class="pv-samples">
+          <div class="sample-view"><img src="static/img/E_flat.jpg" alt="Two-step ImageNet samples from iSD-T"></div>
+          <p class="caption"><span class="cap-num">Figure 6.</span> 2-step results trained on ImageNet, iSD-T.</p>
+        </div>
+        <div class="pv-videos">
+          <div class="pv-vids">
+            <figure><video src="static/video/transport_isd_nfe2.mp4" autoplay muted loop playsinline preload="metadata" aria-label="Transport"></video><span>Transport</span></figure>
+            <figure><video src="static/video/pusht_isd_nfe2.mp4" autoplay muted loop playsinline preload="metadata" aria-label="Push-T"></video><span>Push-T</span></figure>
+          </div>
+          <p class="caption"><span class="cap-num">Figure 7.</span> Simulation results of the iSD policy with 2-NFE on Transport and Push-T tasks.</p>
+        </div>
+      </div>
+    </figure>
+  </div>
+</section>
+
+<!-- ================================================================ §4 ANALYSIS -->
+<section class="section alt" id="analysis">
+  <div class="container is-max-desktop">
+    <h2 class="sec-title">Analysis of Instability</h2>
+    <div class="sec-tabs" data-tabs>
+      <div class="tab-list sec-tab-list" role="tablist" aria-label="Section 4">
+        <button role="tab"><span class="num">3</span>Preliminary</button>
+        <button role="tab"><span class="num">4.1</span>Flow Map Representation</button>
+        <button role="tab" aria-selected="true"><span class="num">4.2</span>Guidance Velocity</button>
+        <button role="tab"><span class="num">4.3</span>Weight Initializations</button>
+        <button role="tab"><span class="num">4.4</span>Time Condition</button>
+      </div>
+      <div class="tab-pane" role="tabpanel" hidden>
+      <h3 class="sub-title"><span class="num">3</span> Preliminary</h3>
+      <div class="prose">
+      <p><strong>Flow Matching.</strong> Given a dataset \(X\) with underlying distribution \(p_X\), flow matching models are trained to match the velocity fields of continuous flows, starting from a tractable distribution \(p_Z\). Prior work constructs such flows via an interpolation, \(x_t = \alpha_tx + \sigma_t z\), where \(x\sim p_X\) and \(z\sim p_Z\). With the constructed flow, the flow matching models optimize the squared error between the conditional velocity \(v_t(x_t|x) = \alpha'_tx + \frac{\sigma'_t}{\sigma_t}(x_t - \alpha_tx)\) and a network \(F_\theta(x_t; t)\):</p>
+      <div class="eq">\[\mathcal L_\text{CFM} = \mathbb E_{x,z,t}\left[\|F_\theta(x_t; t) - v_t(x_t|x)\|^2_2\right],\qquad F_\theta(x_t; t)\approx v^*_t(x_t) = \mathbb E_{x|x_t}[v_t(x_t|x)].\]</div>
+      <p><strong>Flow Map.</strong> From flows defined by interpolation, our goal is to draw samples from the target distribution in a few sampling steps. To this end, we adopt a <em>flow map</em> \(f(x_t; t, s)\), which is a mapping between two points \(x_t\) and \(x_s\ (s&lt;t)\) on the same trajectory (Kim et al., 2024; Boffi et al., 2025):</p>
+      <div class="eq">\[f(x_t; t, s) = x_t + \int^s_tv_\tau^*(x_\tau)d\tau = x_s.\]</div>
+      <p><strong>Training Flow Map.</strong> Since the flow map is defined as an integral, direct supervision from scratch is challenging. Recent studies adopt consistency training (Song et al., 2023) to avoid data generation, which can be derived from the Eulerian equation:</p>
+      <div class="eq">\[\partial_t f(x_t; t, s) + v^*_t(x_t)\cdot\nabla_xf(x_t; t, s) = 0.\]</div>
+      <p>To train a flow map network \(f_\theta(x_t; t, s)\) using this equation, Eulerian distillation (Boffi et al., 2025) formulates the objective as a squared minimization problem:</p>
+      <div class="eq">\[\mathcal L_\mathrm{ED} = \mathbb E_{x,z,t,s}\left[\|\partial_tf_\theta(x_t; t, s) + v^*_t(x_t)\cdot\nabla_xf_\theta(x_t; t, s)\|^2_2\right].\]</div>
+      <p>For consistency training from scratch, using \(v_t(x_t|x)\) instead of \(v^*_t(x_t)\) is a more common choice:</p>
+      <div class="eq">\[\mathcal L_\mathrm{CT} = \mathbb E\left[\left\|f_\theta(x_t; t, s) - \operatorname{sg}\left[f_\theta(x_t; t, s) - \left[\partial_tf_\theta(x_t; t, s) + {\color{#b4462b}v_t(x_t|x)}\cdot\nabla_xf_\theta(x_t; t, s)\right]\right]\right\|^2_2\right].\]</div>
+      <p>Since \(\mathcal L_\mathrm{ED}\) involves a Jacobian-vector product (JVP), its optimization requires second-order differentiation, introducing computational overhead. In contrast, consistency distillation \(\mathcal L_\mathrm{CD}\) and consistency training \(\mathcal L_\mathrm{CT}\) use a stop-gradient operation, avoiding this issue. However, they alter gradient dynamics, potentially affecting training stability.</p>
+      </div>
+        <button type="button" class="ctl-btn tab-next" data-next="1">Next: 4.1 Flow Map Representation <i class="fas fa-arrow-right" aria-hidden="true"></i></button>
+      </div>
+      <div class="tab-pane" role="tabpanel" hidden>
+      <h3 class="sub-title"><span class="num">4.1</span> Flow Map Representation for Analysis</h3>
+      <div class="prose">
+        <p>To enable a systematic analysis of training instability in consistency models, we propose a flow map representation for commonly used interpolations, expressed as a one-step Euler solution with a network \(F_\theta\):</p>
+      </div>
+      <div class="eq">\[f_\theta(x_t; t, s) = \nu^{-1}(A_{t,s}'x_t - A_{t,s}F_\theta(x_t; t, s)),\qquad A_{t,s}=\sigma_t\alpha_s - \sigma_s\alpha_t.\]</div>
+      <div class="prop reveal">
+        <p class="prop-head">Proposition 4.1 <span>(Interpretation of Recent Methods)</span></p>
+        <p>The methods listed in Table 1 can be interpreted within the flow map representation, satisfying the following transport equation:</p>
+        <div class="eq">\[\partial_tf_\theta(x_t; t, s) + \tau_t(x_t, x)\cdot\nabla_xf_\theta(x_t; t, s) = 0,\]</div>
+        <p>where \(x_t\) is given by the Interpolant, \(\tau_t\) by the Trajectory, and \(t, s\) by the Timestep, as summarized in Table 1.</p>
+      </div>
+
+      <div class="table-wrap reveal">
+        <table class="paper-table gen-table">
+          <thead>
+            <tr><th>Model</th><th>Interpolant \(x_t\)</th><th>Trajectory \(\tau_t\)</th><th>Timestep</th><th>JVP</th><th>Objective</th></tr>
+          </thead>
+          <tbody>
+            <tr class="group"><td colspan="6">Distillation-based Methods</td></tr>
+            <tr><td>FMM-EMD</td><td>Any (Linear)</td><td class="tr-teacher">\(\Phi_t(x_t)\)</td><td>\(s &lt; t\)</td><td>Exact</td><td>\(\mathcal L_\mathrm{ED}\)</td></tr>
+            <tr><td>AYF-EMD</td><td>Any (Linear)</td><td class="tr-teacher">\(\Phi_t(x_t)\)</td><td>\(s &lt; t\)</td><td>Exact</td><td>\(\mathcal L_\mathrm{CD}\)</td></tr>
+            <tr><td>sCD</td><td>Trigonometric</td><td class="tr-teacher">\(\Phi_t(x_t)\)</td><td>\(s=0\)</td><td>Exact</td><td>\(\mathcal L_\mathrm{CD}\)</td></tr>
+            <tr class="group"><td colspan="6">Consistency Training Methods</td></tr>
+            <tr><td>MeanFlow</td><td>Linear</td><td class="tr-cond">\(v_t(x_t|x)\)</td><td>\(s &lt; t\)</td><td>Exact</td><td>\(\mathcal L_\mathrm{CT}\)</td></tr>
+            <tr><td>ConsistencyFM</td><td>Linear</td><td class="tr-cond">\(v_t(x_t|x)\)</td><td>\(s=0\)</td><td>Approx.</td><td>\(\mathcal L_\mathrm{CT}\)</td></tr>
+            <tr><td>sCT</td><td>Trigonometric</td><td class="tr-cond">\(v_t(x_t|x)\)</td><td>\(s=0\)</td><td>Exact</td><td>\(\mathcal L_\mathrm{CT}\)</td></tr>
+            <tr><td>UCGM</td><td>Any (Linear, Trig.)</td><td class="tr-cond">\(v_t(x_t|x)\)</td><td>\(s=0\)</td><td>Approx.</td><td>\(\mathcal L_\mathrm{CT}\)</td></tr>
+            <tr class="group"><td colspan="6">Self-Distillation Methods</td></tr>
+            <tr><td>Shortcut Model</td><td>Linear</td><td class="tr-self">\(F_\theta(x_t; t, t)\)</td><td>\(s &lt; t\)</td><td>Approx.</td><td>\(\mathcal L_\text{SD}\)</td></tr>
+            <tr><td>ESD</td><td>Any (Linear)</td><td class="tr-self">\(F_\theta(x_t; t, t)\)</td><td>\(s &lt; t\)</td><td>Exact</td><td>\(\mathcal L_\mathrm{SD}\)</td></tr>
+            <tr class="ours"><td><strong>iSD (Ours)</strong></td><td>Any (Linear, Trig.)</td><td class="tr-self">\(F_\theta(x_t; t, t)\)</td><td>\(s &lt; t\)</td><td>Approx.</td><td>\(\mathcal L_\mathrm{SD\text{-}R}\)</td></tr>
+          </tbody>
+        </table>
+        <p class="caption"><span class="cap-num">Table 1.</span> Summary of recent consistency models interpreted under the flow map representation. Interpolants in parentheses denote settings realized in the cited work. \(\Phi_t(x_t)\) is the teacher network and \(F_\theta(x_t; t, s)\) is the training network. Our method is aligned with the learned marginal velocity \(F_\theta(x_t; t, t)\) and the relaxed time condition \(s&lt;t\), while reformulating Eulerian self-distillation (ESD) to reduce the gradient norm problem.</p>
+      </div>
+        <button type="button" class="ctl-btn tab-next" data-next="2">Next: 4.2 Guidance Velocity <i class="fas fa-arrow-right" aria-hidden="true"></i></button>
+      </div>
+      <div class="tab-pane" role="tabpanel">
+      <h3 class="sub-title"><span class="num">4.2</span> Suboptimality and Instability <span class="factor-tag">Guidance Velocity</span></h3>
+      <div class="prose">
+        <p>Most consistency training approaches are guided by a <em>conditional velocity</em>. However, this setup can contribute to training instability. To examine its effect, we consider Eulerian distillation with a conditional velocity field. Following Boffi et al. (2025), we refer to this as <em>direct training</em>.</p>
+        <div class="eq">\[\mathcal L_\mathrm{DT} = \mathbb E\left[\|\partial_tf_{\theta}(x_t; t, s) + {\color{#b4462b}v_t(x_t|x)}\cdot\nabla_xf_{\theta}(x_t; t, s)\|^2_2\right].\]</div>
+        <p>Since the global optimum of Eulerian distillation corresponds to the flow map, we show that direct training does not guarantee convergence to this solution by comparing their stationary conditions.</p>
+      </div>
+      <div class="prop reveal">
+        <p class="prop-head">Proposition 4.2 <span>(Stationary Condition of Direct Training)</span></p>
+        <p>A stationary point of direct training satisfies</p>
+        <div class="eq">\[\mathcal S_\mathrm{DT} = \mathcal S_\mathrm{ED} + {\color{#b4462b}C} = 0,\quad {\color{#b4462b}C = \nabla\cdot(\rho_t\Sigma_{\Delta v|x_t}\nabla_x f_\theta)},\]</div>
+        <p>where \(\mathcal S_\mathrm{ED}\) is the stationary condition of Eulerian distillation, \(\Delta v = v_t(x_t|x) - v^*_t(x_t)\), and \(\Sigma_{\Delta v|x_t}\) is the conditional covariance \(\mathrm{Cov}_{x|x_t}[\Delta v]\). This follows from applying the Euler-Lagrange equation to \(\mathcal L_\mathrm{DT}\). This suggests that training can admit a degenerate flow map (\(\mathcal S_\mathrm{ED} = -C\ne 0\)), which is a suboptimal solution.</p>
+      </div>
+      <div class="prose">
+        <p>Thus, the discrepancy is not only an objective-level mismatch: through the term \(C\), <em>it can actually shift the stationary point and admit degenerate flow maps</em>.</p>
+      </div>
+
+      <figure class="toy-fig reveal" id="toy-dt" data-toy-runs="DT_2048,ED_2048,GT">
+        <div class="toy-grid cols-3">
+          <div class="toy-cell"><canvas width="50" height="50"></canvas><span class="toy-label">\(\mathcal L_\mathrm{DT}\)</span></div>
+          <div class="toy-cell"><canvas width="50" height="50"></canvas><span class="toy-label">\(\mathcal L_\mathrm{ED}\)</span></div>
+          <div class="toy-cell"><canvas width="50" height="50"></canvas><span class="toy-label">Ground truth</span></div>
+        </div>
+        <div class="toy-ctrl"></div>
+        <figcaption class="caption"><span class="cap-num">Figure 2.</span> Toy experiments with a 5-layer MLP (batch size of 2048). \(\mathcal L_\mathrm{DT}\) drives flow map training toward a suboptimal solution, while \(\mathcal L_\mathrm{ED}\) leads to a solution close to the ground truth.</figcaption>
+      </figure>
+
+      <div class="prose">
+        <p>When a stop-gradient operation is applied to \(\mathcal L_\mathrm{DT}\), it coincides with the consistency training objective \(\mathcal L_\mathrm{CT}\). This objective can recover solutions satisfying the Eulerian equation, even when guided by conditional velocity. However, this holds only at the expectation level, and a small batch size can induce a residual gap.</p>
+      </div>
+      <div class="prop reveal">
+        <p class="prop-head">Proposition 4.3 <span>(Expectation-level Realization of Consistency Training)</span></p>
+        <p>Let \(L_*f_\theta=\partial_t f_\theta+v_t^*\cdot\nabla_x f_\theta\) denote the Eulerian operator applied to \(f_\theta\). The stationary condition of consistency training is</p>
+        <div class="eq">\[\mathcal S_\mathrm{CT} = L_*f_\theta + {\color{#b4462b}\mathbb E_{x|x_t}[\Delta v\cdot\nabla_x f_\theta]} = 0,\]</div>
+        <p>when \(\rho_t &gt; 0\). This admits the desired flow map as a fixed-point solution, \(L_*f_\theta = 0\), since the second term vanishes by \(\mathbb E_{x|x_t}[\Delta v] = 0\) in expectation. However, under finite-batch estimation, the empirical residual induced by \(\Delta v\) may remain, which can perturb the fixed-point training dynamics.</p>
+      </div>
+
+      <figure class="toy-fig reveal" id="toy-batch" data-toy-runs="CT_2048,CT_512,CT_128,ED_2048,ED_512,ED_128">
+        <div class="batch-layout">
+          <div class="batch-grid">
+            <span class="row-label"><span>\(\mathcal L_\mathrm{CT}\)</span></span>
+            <div class="toy-cell"><canvas width="50" height="50"></canvas></div>
+            <div class="toy-cell"><canvas width="50" height="50"></canvas></div>
+            <div class="toy-cell"><canvas width="50" height="50"></canvas></div>
+            <span class="row-label"><span>\(\mathcal L_\mathrm{ED}\)</span></span>
+            <div class="toy-cell"><canvas width="50" height="50"></canvas><span class="toy-label">\(B=2048\)</span></div>
+            <div class="toy-cell"><canvas width="50" height="50"></canvas><span class="toy-label">\(B=512\)</span></div>
+            <div class="toy-cell"><canvas width="50" height="50"></canvas><span class="toy-label">\(B=128\)</span></div>
+          </div>
+          <div class="ed-chart">
+            <div class="chart" id="chart-ed"></div>
+            <p class="sub-caption">\(\mathcal L_\mathrm{ED}\) over training steps.</p>
+          </div>
+        </div>
+        <div class="toy-ctrl"></div>
+        <figcaption class="caption"><span class="cap-num">Figure 3.</span> (Left) Consistency training \(\mathcal L_\mathrm{CT}\) exhibits drift toward degenerate distributions as the batch size \(B\) decreases. (Right) Estimating the optimality of flow maps using \(\mathcal L_\mathrm{ED}\). Solid lines indicate a batch size of 2048, and dash-dot lines indicate 128.</figcaption>
+      </figure>
+
+      <div class="prose">
+        <p>Figure 3 shows drift toward a degenerate solution as the batch size decreases, <em>which is consistent with the finite-batch residual in Proposition 4.3</em>.</p>
+      </div>
+
+      <details class="apx" data-tabs>
+        <summary class="apx-head"><span class="apx-tag">Appendix</span><span class="apx-title">Direct intervention &amp; batch size on ImageNet</span></summary>
+        <div class="apx-body">
+            <div class="tab-list" role="tablist">
+              <button role="tab" aria-selected="true">Direct intervention</button>
+              <button role="tab">Batch size on ImageNet</button>
+            </div>
+          <div class="tab-pane" role="tabpanel">
+            <div class="eq">\[v^\gamma_t(x_t) = (1-\gamma)v^*_t(x_t) + \gamma v_t(x_t|x)\]</div>
+            <div class="mini-tables">
+              <div class="table-wrap">
+                <table class="paper-table compact">
+                  <thead><tr><th>\(\gamma\)</th><th class="num">1.00</th><th class="num">0.75</th><th class="num">0.50</th><th class="num">0.25</th><th class="num">0.00</th></tr></thead>
+                  <tbody>
+                    <tr><td>\(\mathcal L_\mathrm{ED}\)</td><td class="num">0.34</td><td class="num">0.24</td><td class="num">0.17</td><td class="num">0.12</td><td class="num">0.10</td></tr>
+                    <tr><td>\(\mathcal L_\mathrm{CT}\)</td><td class="num">0.16</td><td class="num">0.15</td><td class="num">0.15</td><td class="num">0.12</td><td class="num">0.10</td></tr>
+                  </tbody>
+                </table>
+                <p class="sub-caption">\(\mathcal L_\mathrm{ED}\) in toy experiments</p>
+              </div>
+              <div class="table-wrap">
+                <table class="paper-table compact">
+                  <thead><tr><th>\(\gamma\)</th><th class="num">1.0</th><th class="num">0.5</th><th class="num">0.0</th></tr></thead>
+                  <tbody>
+                    <tr><td>FID</td><td class="num">120.49</td><td class="num">112.42</td><td class="num">110.38</td></tr>
+                    <tr><td>\(\sigma\)</td><td class="num">204.07</td><td class="num">92.43</td><td class="num">61.94</td></tr>
+                  </tbody>
+                </table>
+                <p class="sub-caption">FID and \(\sigma\) in ablation settings</p>
+              </div>
+            </div>
+            <p class="caption"><span class="cap-num">Table 10.</span> Direct intervention on guiding velocity by interpolating marginal velocity (\(\gamma=0\)) and conditional velocity (\(\gamma=1\)). The marginal velocity guidance shows lower FID and lower loss variance. This provides empirical evidence consistent with the view: the gradient difference induced by the guiding velocity can affect optimization and is associated with suboptimality and instability.</p>
+          </div>
+          <div class="tab-pane" role="tabpanel" hidden>
+            <div class="table-wrap narrow">
+              <table class="paper-table compact">
+                <thead><tr><th>Case</th><th class="num">32</th><th class="num">256</th><th class="num">1024</th></tr></thead>
+                <tbody>
+                  <tr><td>Baseline</td><td class="num">137.35</td><td class="num">120.49</td><td class="num">115.80</td></tr>
+                  <tr><td>MeanFlow</td><td class="num">31.63</td><td class="num">11.48</td><td class="num">8.84</td></tr>
+                  <tr><td>iSD-T</td><td class="num">31.47</td><td class="num">14.62</td><td class="num">13.10</td></tr>
+                  <tr class="rule"><td>iSD-T (DiT-B/2<sup>†</sup>)</td><td class="num">-</td><td class="num">8.76</td><td class="num">8.79</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="caption"><span class="cap-num">Table 14.</span> FIDs across batch sizes. For the baseline and MeanFlow, larger batch sizes improve FIDs. This is consistent with our analysis: increasing the batch size reduces the residual in Proposition 4.3. For iSD-T, performance appears less sensitive to batch size. We acknowledge that these experiments are limited to a single run.</p>
+          </div>
+        </div>
+      </details>
+        <button type="button" class="ctl-btn tab-next" data-next="3">Next: 4.3 Weight Initializations <i class="fas fa-arrow-right" aria-hidden="true"></i></button>
+      </div>
+      <div class="tab-pane" role="tabpanel" hidden>
+      <h3 class="sub-title"><span class="num">4.3</span> Suboptimality and Instability <span class="factor-tag">Weight Initializations</span></h3>
+      <div class="prose">
+        <p>We further observe that consistency models with \(s=0\) are sensitive to weight initialization, which can affect reproducibility. Recent approaches rely on initialization with pretrained flow models, where the network is already approximately aligned with target flows. This reduces certain early-stage instability, and is often referred to as a <em>preconditioner</em> (Geng et al., 2025). We find that performance varies with the preconditioner, and reproducing results without known preconditioners can be challenging.</p>
+      </div>
+      <div class="table-wrap reveal">
+        <table class="paper-table precond-table">
+          <thead><tr><th>Preconditioner</th><th>Preconditioner FID↓</th><th>2-FID↓</th></tr></thead>
+          <tbody>
+            <tr><td>Multistep Baseline</td><td>1.21 (UCGM-S, 30-step)</td><td class="num"><span class="countup" data-to="2.52">2.52</span></td></tr>
+            <tr><td>LightningDiT</td><td>2.17 (Euler, 250-step)</td><td class="num"><span class="countup" data-to="9.59">9.59</span></td></tr>
+            <tr><td>In-house Flow Model</td><td>2.41 (UCGM-S, 30-step)</td><td class="num"><span class="countup" data-to="5.78">5.78</span></td></tr>
+            <tr class="diverge"><td>w/o Preconditioner</td><td class="has-text-centered">-</td><td class="num"><span class="countup" data-to="419.60">419.60</span></td></tr>
+            <tr class="ref"><td>Reported Baseline</td><td>1.21 (UCGM-S, 30-step)</td><td class="num">1.42</td></tr>
+          </tbody>
+        </table>
+        <p class="caption"><span class="cap-num">Table 2.</span> Consistency training results under different preconditioners. <em>Preconditioner FID</em> denotes the FIDs of pretrained networks for given ODE solver and sampling-step pairs. <em>2-FID</em> denotes two-step FIDs of consistency models initialized from the corresponding preconditioner.</p>
+      </div>
+      <div class="prose">
+        <p>The resulting few-step FIDs are inconsistent: stronger preconditioners do not necessarily yield better consistency models. Additionally, models diverge when initialized randomly, suggesting that the optimum is inaccessible in this case.</p>
+        <p>As a complementary hypothesis, this can be understood from the stop-gradient (fixed-point) updates of consistency models: <em>initialization matters as training is driven toward nearby fixed points rather than the global optimum</em>. The result suggests the possible existence of attracting basins under different initialization weights.</p>
+      </div>
+
+      <details class="apx" data-tabs>
+        <summary class="apx-head"><span class="apx-tag">Appendix</span><span class="apx-title">Training curves of consistency training</span></summary>
+        <div class="apx-body">
+          <div class="tab-pane">
+            <div class="img-row cols-3 wipe">
+              <span class="pw"><img class="pw-bg" src="static/img/plot/Ga_ucgm_bg.png" alt="" loading="lazy"><img class="pw-fg" src="static/img/plot/Ga_ucgm.png" alt="Training loss over training steps" loading="lazy"></span>
+              <span class="pw"><img class="pw-bg" src="static/img/plot/Gb_ucgm_bg.png" alt="" loading="lazy"><img class="pw-fg" src="static/img/plot/Gb_ucgm.png" alt="Two-step FIDs over training steps" loading="lazy"></span>
+              <span class="pw"><img class="pw-bg" src="static/img/plot/Gc_ucgm_bg.png" alt="" loading="lazy"><img class="pw-fg" src="static/img/plot/Gc_ucgm.png" alt="Rescaled two-step FIDs with a preconditioner" loading="lazy"></span>
+            </div>
+            <img class="legend-img" src="static/img/plot/Gd_legend.png" alt="Legend: CT with baseline, LightningDiT, reproduced, and random initialization" loading="lazy">
+            <p class="caption"><span class="cap-num">Figure 9.</span> (a) Training loss over training steps. (b) Two-step FIDs over training steps. (c) Rescaled Y-axis for the consistency model with a preconditioner. These results suggest that consistency training can be sensitive to initialization and the choice of preconditioner.</p>
+          </div>
+        </div>
+      </details>
+        <button type="button" class="ctl-btn tab-next" data-next="4">Next: 4.4 Time Condition <i class="fas fa-arrow-right" aria-hidden="true"></i></button>
+      </div>
+      <div class="tab-pane" role="tabpanel" hidden>
+      <h3 class="sub-title"><span class="num">4.4</span> Suboptimality and Instability <span class="factor-tag">Time Condition</span></h3>
+      <div class="prose">
+        <p>Some studies (Geng et al., 2025; Frans et al., 2025) enable training from scratch without a preconditioner. The key difference is that they allow \(s&lt;t\), while others fix \(s=0\). Intuitively, training long-range mappings is more challenging than short-range ones. Under the flow map representation, Eulerian distillation can be written as</p>
+        <div class="eq ts-eq" id="ts-eq">\[\mathcal L_\mathrm{ED} = \mathbb E\left[\left\|{\color{#7a838e}A''_{t,s}x_t} + {\color{#0070c0}A'_{t,s}(v^*_t - F_\theta)} - {\color{#b4462b}A_{t,s}\frac{dF_\theta}{dt}}\right\|^2_2\right] = \mathbb E\left[\left\|{\color{#0070c0}v^*_t - F_\theta} - {\color{#b4462b}(t - s)\frac{dF_\theta}{dt}}\right\|^2_2\right].\]</div>
+      </div>
+
+      <div class="ts-demo reveal" id="ts-demo">
+        <div class="ts-head">
+          <div class="seg" role="group" aria-label="Interpolation">
+            <button type="button" class="on" data-interp="linear">Linear</button>
+            <button type="button" data-interp="trig">Trigonometric</button>
+          </div>
+          <span class="ts-def" data-for="linear">\(\alpha_t = 1-t,\ \sigma_t = t,\ t\in[0,1]\)</span>
+          <span class="ts-def" data-for="trig" hidden>\(\alpha_t = \cos t,\ \sigma_t = \sin t,\ t\in[0,\pi/2]\)</span>
+        </div>
+        <div class="ts-sliders">
+          <button type="button" class="ctl-btn icon ts-play" aria-label="Play"><i class="fas fa-play" aria-hidden="true"></i></button>
+          <label>\(t-s\)<input type="range" class="ts-d" min="0" max="1000" value="0" aria-label="t minus s"><output class="ts-dv"></output></label>
+        </div>
+        <div class="ts-bars">
+          <div class="ts-row"><span class="ts-name">\(A''_{t,s}\)<em class="ts-f" data-k="a2"></em></span><span class="ts-bar"><i class="a2"></i></span><output class="ts-val" data-k="a2"></output></div>
+          <div class="ts-row"><span class="ts-name">\(A'_{t,s}\)<em class="ts-f" data-k="a1"></em></span><span class="ts-bar"><i class="a1"></i></span><output class="ts-val" data-k="a1"></output></div>
+          <div class="ts-row"><span class="ts-name">\(A_{t,s}\)<em class="ts-f" data-k="a0"></em></span><span class="ts-bar"><i class="a0"></i></span><output class="ts-val" data-k="a0"></output></div>
+        </div>
+      </div>
+
+      <div class="prose">
+        <p>We observe that \(s\to t\) amplifies the flow matching term \(v^*_t - F_\theta\) since \(A''_{t,t}=A_{t,t}=0\), while \(s\to 0\) amplifies the linearization term involving the JVP \(dF_\theta/dt\). As the JVP is structurally more complex, we hypothesize that it may give rise to more undesired fixed points. This suggests that fixing \(s=0\) makes optimization less stable, while relaxing to \(s&lt;t\) balances the terms and mitigates instability.</p>
+      </div>
+
+      <figure class="landscape-fig reveal" data-tabs>
+        <div class="tab-list" role="tablist">
+          <button role="tab" aria-selected="true">Main text</button>
+          <button role="tab">All objectives, 0K steps</button>
+          <button role="tab">All objectives, 200K steps</button>
+        </div>
+        <div class="tab-pane" role="tabpanel">
+          <div class="landscape-grid">
+            <div><img src="static/img/Ba_landscape.png" alt="Loss landscape of the consistency model" loading="lazy"><span>Consistency Model</span></div>
+            <div><img src="static/img/Be_landscape.png" alt="Loss landscape with time relaxation" loading="lazy"><span>Time Relaxation</span></div>
+            <div><img src="static/img/Bg_landscape.png" alt="Loss landscape of self-distillation (ESD)" loading="lazy"><span>Self-Distillation (ESD)</span></div>
+            <div><img src="static/img/Bf_landscape.png" alt="Loss landscape of iSD" loading="lazy"><span>iSD (Ours)</span></div>
+          </div>
+          <p class="caption"><span class="cap-num">Figure 4.</span> Loss landscapes of four methods. The standard deviation \(\sigma\) and the number of spikes \(N\) serve as diagnostic proxies for training stability. iSD shows lower variance and fewer spikes under the common reference range. \(\alpha\) and \(\beta\) denote the top-2 eigenvectors of the Hessian on ImageNet-1K with DiT-B/4. \(N\) denotes the number of samples outside each method's own empirical 95% range. Values in parentheses report the number of samples exceeding the range defined by iSD, as a common reference.</p>
+        </div>
+        <div class="tab-pane" role="tabpanel" hidden>
+          <div class="landscape-grid seven">
+            <div><img src="static/img/Ba_landscape.png" alt="" loading="lazy"><span>Consistency Model</span></div>
+            <div><img src="static/img/Bb_landscape.png" alt="" loading="lazy"><span>Time Relaxation w/o \(\mathcal L_\mathrm{CFM}\)</span></div>
+            <div><img src="static/img/Bc_landscape.png" alt="" loading="lazy"><span>iSD w/o \(\mathcal L_\mathrm{CFM}\)</span></div>
+            <div><img src="static/img/Bd_landscape.png" alt="" loading="lazy"><span>Flow Matching</span></div>
+            <div><img src="static/img/Be_landscape.png" alt="" loading="lazy"><span>Time Relaxation</span></div>
+            <div><img src="static/img/Bg_landscape.png" alt="" loading="lazy"><span>Self-Distillation</span></div>
+            <div><img src="static/img/Bf_landscape.png" alt="" loading="lazy"><span>iSD (Ours)</span></div>
+          </div>
+          <p class="caption"><span class="cap-num">Figure 17.</span> Loss landscapes of four methods at 0K training steps. \(\alpha\) and \(\beta\) denote the top-2 eigenvectors of the Hessian on ImageNet-1K with DiT-B/4. \(\sigma\) denotes the standard deviations of the landscape fields, and \(N\) the number of samples outside each method's own empirical 95% range. Values in parentheses report the number of samples exceeding the 95% bound defined by iSD, as a common reference. We examine each objective without joint training with flow matching in the upper rows.</p>
+        </div>
+        <div class="tab-pane" role="tabpanel" hidden>
+          <div class="landscape-grid seven">
+            <div><img src="static/img/Ba_landscape_200K.png" alt="" loading="lazy"><span>Consistency Model</span></div>
+            <div><img src="static/img/Bb_landscape_200K.png" alt="" loading="lazy"><span>Time Relaxation w/o \(\mathcal L_\mathrm{CFM}\)</span></div>
+            <div><img src="static/img/Bc_landscape_200K.png" alt="" loading="lazy"><span>iSD w/o \(\mathcal L_\mathrm{CFM}\)</span></div>
+            <div><img src="static/img/Bd_landscape_200K.png" alt="" loading="lazy"><span>Flow Matching</span></div>
+            <div><img src="static/img/Be_landscape_200K.png" alt="" loading="lazy"><span>Time Relaxation</span></div>
+            <div><img src="static/img/Bg_landscape_200K.png" alt="" loading="lazy"><span>Self-Distillation</span></div>
+            <div><img src="static/img/Bf_landscape_200K.png" alt="" loading="lazy"><span>iSD (Ours)</span></div>
+          </div>
+          <p class="caption"><span class="cap-num">Figure 18.</span> Loss landscapes at 200K training steps. Other settings are identical to those in Figure 17. Across both checkpoints, these observations remain consistent with an association between time-condition relaxation, self-distillation, and a more stable optimization landscape.</p>
+        </div>
+      </figure>
+      <div class="prose">
+        <p>Time relaxation reduces loss variance and spikes, which can be interpreted as reduced risk of training divergence, supporting our claim.</p>
+      </div>
+
+      <details class="apx" data-tabs>
+        <summary class="apx-head"><span class="apx-tag">Appendix</span><span class="apx-title">Step size ablation</span></summary>
+        <div class="apx-body">
+          <div class="tab-pane">
+            <div class="eq">\[s = u\cdot \max\{t - d, 0\},\quad t\sim \mathrm{Beta}(0.8, 1.0),\quad u\sim \mathcal U[0, 1)\]</div>
+            <div class="img-row cols-3 wipe">
+              <span class="pw"><img class="pw-bg" src="static/img/plot/Ma_loss_bg.png" alt="" loading="lazy"><img class="pw-fg" src="static/img/plot/Ma_loss.png" alt="Loss over training steps across step size d" loading="lazy"></span>
+              <span class="pw"><img class="pw-bg" src="static/img/plot/Mb_grad_norm_bg.png" alt="" loading="lazy"><img class="pw-fg" src="static/img/plot/Mb_grad_norm.png" alt="Gradient norm across step size d" loading="lazy"></span>
+              <span class="pw"><img class="pw-bg" src="static/img/plot/Mc_FID_IS_bg.png" alt="" loading="lazy"><img class="pw-fg" src="static/img/plot/Mc_FID_IS.png" alt="FID and IS across step size d" loading="lazy"></span>
+            </div>
+            <p class="caption"><span class="cap-num">Figure 11.</span> \(d=0\) recovers the relaxed time condition \(s&lt;t\), whereas \(d=1\) recovers fixed \(s=0\). Smaller \(d\) values are associated with lower loss values and better quantitative metrics in this setting. We note that these results are limited to a single-seed evaluation.</p>
+          </div>
+        </div>
+      </details>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ================================================================ §5 METHOD -->
+<section class="section" id="method">
+  <div class="container is-max-desktop">
+    <h2 class="sec-title">Method</h2>
+    <div class="sec-tabs" data-tabs>
+      <div class="tab-list sec-tab-list" role="tablist" aria-label="Section 5">
+        <button role="tab" aria-selected="true"><span class="num">5.1</span>improved Self-Distillation (iSD)</button>
+        <button role="tab"><span class="num">5.2</span>Implementation</button>
+      </div>
+      <div class="tab-pane" role="tabpanel">
+    <h3 class="sub-title"><span class="num">5.1</span> improved Self-Distillation (iSD)</h3>
+    <div class="prose">
+      <p><strong>Eulerian Self-Distillation (ESD)</strong> jointly trains \(F_\theta(x_t; t, t)\) via flow matching and \(f_\theta(x_t; t, s)\) via Eulerian distillation, guided by its own velocity:</p>
+      <div class="eq">\[\mathcal L_\mathrm{SD} = \mathbb E\left[\|\partial_tf_{\theta}(x_t; t, s) + {\color{#0070c0}F_\theta(x_t; t, t)}\cdot\nabla_xf_\theta(x_t; t, s)\|^2_2\right].\]</div>
+      <p>Compared to direct training, this utilizes the model-induced marginal velocity \(v^*_t(x_t)\approx F_\theta(x_t; t, t)\) instead of the per-sample conditional velocity \(v_t(x_t|x)\), without requiring teacher networks. This encourages convergence to the marginal flow map and addresses suboptimality in Proposition 4.2.</p>
+      <p><strong>Reformulation.</strong> To enable ESD while incorporating design choices, we propose to reformulate self-distillation \(\mathcal L_\mathrm{SD}\) using the flow map representation. In this case, the guidance velocity \(v_\theta(x_t; t) = F_\theta(x_t; t, t)\) corresponds to the marginal velocity under joint training of flow matching:</p>
+      <div class="eq">\[\mathcal L_\mathrm{SD} = \mathbb E\left[\left\| A''_{t,s}x_t + A'_{t,s}(v_\theta(x_t; t) - F_\theta(x_t; t, s)) - A_{t,s}\frac{dF_\theta(x_t; t, s)}{dt}\right\|^2_2\right].\]</div>
+      <p>To reduce gradient norms, we consider two stop-gradient placements: only the spatial derivative and the full derivative. Both yield theoretically well-defined objectives admitting the desired fixed points, and we empirically select the latter for lower gradient norm and computational efficiency:</p>
+      <div class="eq">\[\mathcal L_\mathrm{SD\text{-}R} = \mathbb E\left[\|F_\theta(x_t; t, s) - \operatorname{sg}\left[F_\mathrm{tgt}\right]\|^2_2\right],\quad F_\mathrm{tgt} = F_\theta + A''_{t,s}x_t + A'_{t,s}(v_\theta - F_\theta) - A_{t,s}\frac{dF_\theta}{dt}.\]</div>
+    </div>
+
+    <details class="apx" data-tabs>
+      <summary class="apx-head"><span class="apx-tag">Appendix</span><span class="apx-title">Gradient norms of each method</span></summary>
+      <div class="apx-body">
+        <div class="tab-pane" id="gradnorm-fig">
+            <div class="chart-pair">
+              <div><div class="chart" id="chart-gn-toy"></div><p class="sub-caption">Toy setting</p></div>
+              <div><div class="chart" id="chart-gn-imagenet"></div><p class="sub-caption">ImageNet ablation setting (Linear, Pre-CFG 5.0)</p></div>
+            </div>
+            <div class="legend" id="legend-gn"></div>
+            <p class="caption"><span class="cap-num">Figure 8.</span> Gradient norms of each method. The colored regions indicate 1 standard deviation. <em>SD</em> denotes Eulerian self-distillation (ESD), <em>SD w/SG</em> denotes the stop-gradient version of ESD introduced by Boffi et al. (2025), <em>CT</em> denotes consistency training, and <em>iSD</em> denotes our improved Self-Distillation.</p>
+        </div>
+      </div>
+    </details>
+
+    <div class="prose">
+      <p>Thus, our final objective of improved Self-Distillation follows:</p>
+      <div class="eq eq-key">\[\mathcal L_\mathrm{iSD} = \lambda_1\mathcal L_\mathrm{CFM} + \lambda_2\mathcal L_\mathrm{SD\text{-}R},\qquad \mathcal L_\mathrm{CFM} = \mathbb E[\|F_\theta(x_t; t, t) - v_t(x_t|x)\|^2_2].\]</div>
+      <p>Consistency training can be viewed as a coupled fixed-point iteration with a parameterized target, whose contraction and global convergence are difficult to establish without additional assumptions. Instead, Appendix B.1 suggests that the objectives are aligned and non-conflicting. We leave contraction and global convergence properties for future work.</p>
+    </div>
+
+    <details class="apx" data-tabs>
+      <summary class="apx-head"><span class="apx-tag">Appendix</span><span class="apx-title">Comparison with LSD &amp; PSD</span></summary>
+      <div class="apx-body">
+        <div class="tab-pane">
+          <div class="img-row cols-2 wipe">
+            <span class="pw"><img class="pw-bg" src="static/img/plot/J_gradnorm_bg.png" alt="" loading="lazy"><img class="pw-fg" src="static/img/plot/J_gradnorm.png" alt="Gradient norms of self-distillation methods" loading="lazy"></span>
+            <span class="pw"><img class="pw-bg" src="static/img/plot/J_fid_bg.png" alt="" loading="lazy"><img class="pw-fg" src="static/img/plot/J_fid.png" alt="FIDs of self-distillation methods" loading="lazy"></span>
+          </div>
+          <p class="caption"><span class="cap-num">Figure 15.</span> Training curves of self-distillation methods. All listed methods adopt Pre-CFG with \(\omega=5.0\). LSD shows more variable gradient norms than PSD and iSD-T, and its trigonometric variant diverges after a gradient spike around 350K training steps.</p>
+        </div>
+      </div>
+    </details>
+        <button type="button" class="ctl-btn tab-next" data-next="1">Next: 5.2 Implementation <i class="fas fa-arrow-right" aria-hidden="true"></i></button>
+      </div>
+      <div class="tab-pane" role="tabpanel" hidden>
+    <h3 class="sub-title"><span class="num">5.2</span> Implementation</h3>
+    <div class="prose">
+      <p><strong>Computing JVP.</strong> To align with the marginal velocity, \(dF_\theta/dt\) needs to follow \(dF_\theta/dt = \partial_tF_\theta + v_\theta\cdot \nabla_x F_\theta\). Alternatively, we can approximate it using a finite difference. Given a small step \(\epsilon\), we define displaced inputs as \(\hat x_{t\pm\epsilon} = x_t \pm \epsilon\cdot v_\theta\), and approximate \(dF_\theta/dt\approx [F_\theta(\hat x_{t+\epsilon}; t + \epsilon, s) - F_\theta(\hat x_{t-\epsilon}; t - \epsilon, s)] /(2\epsilon)\).</p>
+      <p><strong>Classifier-free Guidance.</strong> Since flow maps parameterize mappings rather than velocities, directly applying CFG does not guarantee mappings along the CFG velocity. We thus separate two extensions of iSD: Post-CFG and Pre-CFG. Post-CFG operates as a classical CFG:</p>
+      <div class="eq">\[\tilde f_\theta(x_t; t, s, c) = \nu^{-1}(A'_{t,s}x_t - A_{t,s} \tilde F_c),\quad \tilde F_c = F_\theta(x_t; t, s, \varnothing)  + \omega(F_\theta(x_t; t, s, c) - F_\theta(x_t; t, s, \varnothing)).\]</div>
+      <p>To ensure that the flow map follows the CFG field, we adopt a training-time CFG formulation (Geng et al., 2025), Pre-CFG. This incorporates CFG directly by replacing flow matching with:</p>
+      <div class="eq">\[\mathcal L_\mathrm{CFM}^\omega = \mathbb E\left[\left\|F_\theta(x_t; t, t, c) - \tilde v_t(x_t|x)\right\|^2_2\right],\qquad \tilde v_t(x_t|x) = F_\varnothing + \omega(v_t(x_t|x) - F_\varnothing),\]</div>
+      <p>where \(F_\varnothing = \operatorname{sg}[F_\theta(x_t; t, t, \varnothing)]\). We then train the flow map using the following objective:</p>
+      <div class="eq eq-key">\[\mathcal L_\mathrm{iSD\text{-}T} = \lambda_1\mathcal L_\mathrm{CFM}^\omega + \lambda_2\mathcal L_\mathrm{SD\text{-}R}.\]</div>
+    </div>
+    <div class="prose">
+      <p>This objective encourages the flow map to align with the ground-truth CFG velocity. We refer to this case as iSD-T (<strong>T</strong>raining-time CFG). We adopt iSD-T for class-conditional settings and vanilla iSD for class-unconditional settings.</p>
+    </div>
+
+    <details class="algo">
+      <summary><i class="fas fa-code" aria-hidden="true"></i> Algorithm 3: iSD-T Training</summary>
+      <ol class="algo-body">
+        <li class="in"><strong>Input:</strong> Noise distribution \(p_Z\), data distribution \(p_X\), model \(F_\theta\), learning rate \(\mu\), time distribution \(\tau\), adaptive weighting \((\eta, p)\), JVP approximation step size \(\epsilon\), Pre-CFG scale \(\omega\), class labels \(c\).</li>
+        <li><strong>repeat</strong></li>
+        <li class="i1">\(z \sim p_Z,\quad x \sim p_X,\quad t, s\gets \tau\)</li>
+        <li class="i1">\(x_t\gets \alpha_t x + \sigma_t z,\quad v_t\gets \alpha'_tx + \sigma'_tz\)</li>
+        <li class="i1">\(\tilde v_t \gets \omega v_t + (1-\omega)\operatorname{sg}[F_{\theta}(x_t; t, t, \varnothing)]\)</li>
+        <li class="i1">\(F_{t,s}\gets F_\theta(x_t; t, s, c),\quad F_{t,t}\gets F_\theta(x_t; t, t, c)\)</li>
+        <li class="i1">\(F'_{t,s}\gets \left[F_\theta(x_t + \epsilon F_{t,t}; t + \epsilon, s, c) - F_\theta(x_t - \epsilon F_{t,t}; t - \epsilon, s, c)\right] / (2\epsilon)\) <span class="algo-c">▷ JVP-Approx.</span></li>
+        <li class="i1">\(F_\mathrm{tgt}\gets F_{t,s} + \left(A''_{t,s}x_t + A'_{t,s}(F_{t,t} - F_{t,s}) - A_{t,s}F'_{t,s}\right)\)</li>
+        <li class="i1">\(\mathcal L \gets \lambda_1\|F_{t,t} - \tilde v_t\|^2_2 + \lambda_2\|F_{t,s} - \operatorname{sg}[F_\mathrm{tgt}]\|^2_2\) <span class="algo-c">▷ Optimization Target</span></li>
+        <li class="i1">\(\theta\gets \theta-\mu\nabla_\theta \mathcal L\) <span class="algo-c">▷ Model Update</span></li>
+        <li><strong>until</strong> Convergence</li>
+      </ol>
+    </details>
+    <details class="algo">
+      <summary><i class="fas fa-code" aria-hidden="true"></i> Algorithm 2: iSD Sampling</summary>
+      <ol class="algo-body">
+        <li class="in"><strong>Input:</strong> Initial noise \(z\sim p_Z\), trained model \(F_\theta\), class labels \(c\), sampling time steps \(\{t_i\}_{i=1}^{N+1}\).</li>
+        <li>\(x\gets z\)</li>
+        <li><strong>for</strong> \(i\gets 1\) <strong>to</strong> \(N\) <strong>do</strong></li>
+        <li class="i1">\(x \gets \nu^{-1}(A'_{t_i,t_{i+1}}x - A_{t_i,t_{i+1}}F_\theta(x; t_i, t_{i+1}, c))\)</li>
+        <li><strong>end for</strong></li>
+      </ol>
+    </details>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================ §6 EXPERIMENTS -->
+<section class="section alt" id="experiments">
+  <div class="container is-max-desktop">
+    <h2 class="sec-title">Experiments</h2>
+    <div class="sec-tabs" data-tabs>
+      <div class="tab-list sec-tab-list" role="tablist" aria-label="Section 6">
+        <button role="tab" aria-selected="true"><span class="num">6.1</span>Main Comparison</button>
+        <button role="tab"><span class="num">6.2</span>Ablation Study</button>
+      </div>
+      <div class="tab-pane" role="tabpanel">
+    <h3 class="sub-title"><span class="num">6.1</span> Main Comparison</h3>
+    <figure class="samples reveal" id="samples" data-samples>
+      <div class="sample-tabs" role="tablist" aria-label="Samples">
+        <button role="tab" aria-selected="true" data-src="static/img/E_flat.jpg" data-caption="<span class=&quot;cap-num&quot;>Figure 6.</span> 2-step results trained on ImageNet, iSD-T.">Mixed</button>
+        <button role="tab" data-src="static/img/figure7-7.jpg" data-caption="<span class=&quot;cap-num&quot;>Figure 19.</span> Class-level samples generated by iSD-T with two-step sampling on ImageNet \(256\!\times\!256\).">Class 7</button>
+        <button role="tab" data-src="static/img/figure7-139.jpg" data-caption="<span class=&quot;cap-num&quot;>Figure 19.</span> Class-level samples generated by iSD-T with two-step sampling on ImageNet \(256\!\times\!256\).">Class 139</button>
+        <button role="tab" data-src="static/img/figure7-193.jpg" data-caption="<span class=&quot;cap-num&quot;>Figure 19.</span> Class-level samples generated by iSD-T with two-step sampling on ImageNet \(256\!\times\!256\).">Class 193</button>
+        <button role="tab" data-src="static/img/figure7-607.jpg" data-caption="<span class=&quot;cap-num&quot;>Figure 19.</span> Class-level samples generated by iSD-T with two-step sampling on ImageNet \(256\!\times\!256\).">Class 607</button>
+        <button role="tab" data-src="static/img/figure7-959.jpg" data-caption="<span class=&quot;cap-num&quot;>Figure 19.</span> Class-level samples generated by iSD-T with two-step sampling on ImageNet \(256\!\times\!256\).">Class 959</button>
+        <button role="tab" data-src="static/img/figure7-970.jpg" data-caption="<span class=&quot;cap-num&quot;>Figure 19.</span> Class-level samples generated by iSD-T with two-step sampling on ImageNet \(256\!\times\!256\).">Class 970</button>
+        <button role="tab" data-src="static/img/figure7-973.jpg" data-caption="<span class=&quot;cap-num&quot;>Figure 19.</span> Class-level samples generated by iSD-T with two-step sampling on ImageNet \(256\!\times\!256\).">Class 973</button>
+        <button role="tab" data-src="static/img/figure7-985.jpg" data-caption="<span class=&quot;cap-num&quot;>Figure 19.</span> Class-level samples generated by iSD-T with two-step sampling on ImageNet \(256\!\times\!256\).">Class 985</button>
+      </div>
+      <div class="sample-view"><img src="static/img/E_flat.jpg" alt="Two-step ImageNet samples from iSD-T"></div>
+      <figcaption class="caption sample-cap"><span class="cap-num">Figure 6.</span> 2-step results trained on ImageNet, iSD-T.</figcaption>
+    </figure>
+
+    <div class="columns">
+      <div class="column">
+        <div class="table-wrap reveal">
+          <table class="paper-table compact">
+            <thead><tr><th>Model</th><th class="num">4-FID↓</th><th class="num">128-FID↓</th></tr></thead>
+            <tbody>
+              <tr class="group"><td colspan="3">Distillation-based Methods</td></tr>
+              <tr><td>CD</td><td class="num">39.6</td><td class="num">59.5</td></tr>
+              <tr><td>Reflow</td><td class="num">18.4</td><td class="num">16.1</td></tr>
+              <tr class="group"><td colspan="3">Training from Scratch</td></tr>
+              <tr><td>Flow Matching</td><td class="num">63.3</td><td class="num">7.3</td></tr>
+              <tr><td>CT</td><td class="num">19.0</td><td class="num">53.7</td></tr>
+              <tr><td>Shortcut Model</td><td class="num">13.8</td><td class="num"><strong>6.9</strong></td></tr>
+              <tr class="ours"><td><strong>iSD (Ours)</strong></td><td class="num"><strong>11.3</strong></td><td class="num">7.1</td></tr>
+            </tbody>
+          </table>
+          <p class="caption"><span class="cap-num">Table 6.</span> Comparison on unconditional CelebA-HQ \(256\!\times\!256\).</p>
+        </div>
+      </div>
+      <div class="column">
+        <div class="table-wrap reveal">
+          <table class="paper-table compact">
+            <thead><tr><th>Model</th><th class="num">NFE↓</th><th class="num">FID↓</th></tr></thead>
+            <tbody>
+              <tr><td>iCT</td><td class="num">2</td><td class="num">20.3</td></tr>
+              <tr><td>Shortcut Model</td><td class="num">1</td><td class="num">10.6</td></tr>
+              <tr><td>UCGM</td><td class="num">1</td><td class="num">2.10</td></tr>
+              <tr><td>IMM</td><td class="num">2</td><td class="num">7.77</td></tr>
+              <tr><td>MeanFlow</td><td class="num">2</td><td class="num">2.20</td></tr>
+              <tr><td>FACM</td><td class="num">2</td><td class="num">1.32</td></tr>
+              <tr class="ours rule"><td><strong>iSD-T (Ours, SD-VAE)</strong></td><td class="num">2</td><td class="num">2.76</td></tr>
+              <tr class="ours"><td><strong>iSD-T (Ours, VA-VAE)</strong></td><td class="num">2</td><td class="num">2.26</td></tr>
+            </tbody>
+          </table>
+          <p class="caption"><span class="cap-num">Table 7.</span> Comparison on ImageNet-1K \(256\!\times\!256\). iSD-T uses linear interpolation with a guidance scale of 5.0. This comparison assesses scalability under the combined setting, and the results reflect this configuration rather than the iSD objective alone.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="prose">
+      <p>We compare our method with prior approaches on CelebA-HQ \(256\!\times\!256\) under a class-unconditional setting. iSD achieves comparable performance in both few-step and multistep generation. To examine scalability, we evaluate iSD-T with DiT-XL. iSD-T maintains stable training behavior and comparable sample quality at this scale.</p>
+    </div>
+    <div class="columns policy">
+      <div class="column is-7">
+        <div class="videos">
+          <figure><video src="static/video/transport_isd_nfe2.mp4" autoplay muted loop playsinline preload="metadata"></video><span>Transport</span></figure>
+          <figure><video src="static/video/pusht_isd_nfe2.mp4" autoplay muted loop playsinline preload="metadata"></video><span>Push-T</span></figure>
+        </div>
+        <p class="caption"><span class="cap-num">Figure 7.</span> Simulation results of the iSD policy with 2-NFE on Transport and Push-T tasks.</p>
+      </div>
+      <div class="column is-5">
+        <div class="table-wrap reveal">
+          <table class="paper-table compact">
+            <thead><tr><th>Model</th><th class="num">NFE↓</th><th class="num">Push-T</th><th class="num">Transport</th></tr></thead>
+            <tbody>
+              <tr><td rowspan="2">Diffusion Policy</td><td class="num">100</td><td class="num">0.95</td><td class="num">1.00</td></tr>
+              <tr><td class="num">1</td><td class="num">0.12</td><td class="num">0.00</td></tr>
+              <tr class="rule"><td>Shortcut Model</td><td class="num">1</td><td class="num">0.87</td><td class="num">0.80</td></tr>
+              <tr><td>MeanFlow</td><td class="num">1</td><td class="num">0.85</td><td class="num">0.92</td></tr>
+              <tr class="ours rule"><td rowspan="2"><strong>iSD (Ours)</strong></td><td class="num">2</td><td class="num">0.92</td><td class="num">1.00</td></tr>
+              <tr class="ours"><td class="num">1</td><td class="num">0.86</td><td class="num">0.94</td></tr>
+            </tbody>
+          </table>
+          <p class="caption"><span class="cap-num">Table 8.</span> Success rates (↑) of robotic control tasks.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="prose">
+      <p>To assess the applicability of iSD beyond image generation, we adopt it as a diffusion policy objective in robotic control tasks. With 2-step sampling, iSD achieves success rates comparable to those of diffusion policies that require more sampling steps.</p>
+    </div>
+    <details class="apx" data-tabs>
+      <summary class="apx-head"><span class="apx-tag">Appendix</span><span class="apx-title">Policy learning curves</span></summary>
+      <div class="apx-body">
+        <div class="tab-pane">
+          <div class="img-row cols-2 wipe compact-row">
+            <div><span class="pw"><img class="pw-bg" src="static/img/plot/Fa_policy_bg.png" alt="" loading="lazy"><img class="pw-fg" src="static/img/plot/Fa_policy.png" alt="Push-T success rate and action error" loading="lazy"></span><span>Push-T</span></div>
+            <div><span class="pw"><img class="pw-bg" src="static/img/plot/Fb_policy_bg.png" alt="" loading="lazy"><img class="pw-fg" src="static/img/plot/Fb_policy.png" alt="Transport success rate and action error" loading="lazy"></span><span>Transport</span></div>
+          </div>
+          <p class="caption"><span class="cap-num">Figure 16.</span> Average success rates (solid lines) and action mean-squared errors (dash-dot lines) over training steps. Numeric entries indicate the optimal values across training steps.</p>
+        </div>
+      </div>
+    </details>
+        <button type="button" class="ctl-btn tab-next" data-next="1">Next: 6.2 Ablation Study <i class="fas fa-arrow-right" aria-hidden="true"></i></button>
+      </div>
+      <div class="tab-pane" role="tabpanel" hidden>
+    <h3 class="sub-title"><span class="num">6.2</span> Ablation Study</h3>
+
+    <figure class="reveal" id="ablation">
+      <div class="bars-pair">
+        <div class="bars" id="bars-ablation-fid" data-metric="FID↓ (±σ)"></div>
+        <div class="bars" id="bars-ablation-is" data-metric="IS↑ (±σ)"></div>
+      </div>
+      <figcaption class="caption"><span class="cap-num">Table 3.</span> Ablation study on ImageNet with DiT-B/4. 2-step evaluation results with standard deviations \(\sigma\).</figcaption>
+    </figure>
+
+    <div class="prose">
+      <p>We observe that self-distillation alone underperforms, while incorporating Pre-CFG \(\mathcal L_\text{iSD-T}\) accelerates convergence, improves performance and reproducibility. One possible explanation is that vanilla iSD may trade the finite-batch residual for network approximation error, which can propagate to flow map training. Pre-CFG amplifies the class component and the flow map is trained along this sharpened field, whose task-relevant signal could become more prominent relative to the propagated approximation error.</p>
+    </div>
+
+    <figure class="design-fig reveal">
+      <div class="img-row cols-3 wipe">
+        <div><span class="pw"><img class="pw-bg" src="static/img/plot/Da_ablation_bg.png" alt="" loading="lazy"><img class="pw-fg" src="static/img/plot/Da_ablation.png" alt="FIDs over training steps across design choices" loading="lazy"></span><span>(a) Design choices</span></div>
+        <div><span class="pw"><img class="pw-bg" src="static/img/plot/Db_ablation_bg.png" alt="" loading="lazy"><img class="pw-fg" src="static/img/plot/Db_ablation.png" alt="FIDs of Post-CFG over guidance scales" loading="lazy"></span><span>(b) Post-CFG scales</span></div>
+        <div><span class="pw"><img class="pw-bg" src="static/img/plot/Dc_ablation_bg.png" alt="" loading="lazy"><img class="pw-fg" src="static/img/plot/Dc_ablation.png" alt="FIDs of Pre-CFG over training steps" loading="lazy"></span><span>(c) Pre-CFG scales</span></div>
+      </div>
+      <figcaption class="caption"><span class="cap-num">Figure 5.</span> Design choices. (a) FIDs over training steps. Solid lines indicate the JVP approximation, and dash-dot lines indicate the exact JVP. (b) FIDs of Post-CFG over guidance scales. (c) FIDs of Pre-CFG over training steps. Solid lines indicate trigonometric interpolation, and dash-dot lines indicate linear.</figcaption>
+    </figure>
+
+    <div class="table-wrap reveal">
+      <table class="paper-table design-table">
+        <thead>
+          <tr><th>Loss</th><th>Interp.</th><th>JVP</th><th class="num">1.0</th><th class="num">3.0</th><th class="num">5.0</th><th class="num">7.0</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>\(\mathcal L_\text{CT}\)</td><td>Linear</td><td>Exact</td><td class="num heat">69.18</td><td class="num heat">37.39</td><td class="num heat">52.41</td><td class="num heat">68.46</td></tr>
+          <tr><td>\(\mathcal L_\text{iSD}\)</td><td>Linear</td><td>Exact</td><td class="num heat">114.56</td><td class="num heat">74.17</td><td class="num heat">78.20</td><td class="num heat">88.48</td></tr>
+          <tr class="rule"><td>\(\mathcal L_\text{CT}\)</td><td>Linear</td><td>Approx.</td><td class="num heat">63.02</td><td class="num heat">33.40</td><td class="num heat">50.18</td><td class="num heat">67.27</td></tr>
+          <tr><td>\(\mathcal L_\text{iSD}\)</td><td>Linear</td><td>Approx.</td><td class="num heat">108.70</td><td class="num heat">69.69</td><td class="num heat">75.53</td><td class="num heat">86.72</td></tr>
+          <tr class="rule"><td>\(\mathcal L_\text{iSD-T}\)</td><td>Linear</td><td>Approx.</td><td class="num heat">26.91</td><td class="num heat">44.92</td><td class="num heat">57.60</td><td class="num heat">65.92</td></tr>
+          <tr class="ours"><td>\(\mathcal L_\text{iSD-T}\)</td><td>Trig</td><td>Approx.</td><td class="num heat best">14.62</td><td class="num heat">20.49</td><td class="num heat">30.21</td><td class="num heat">41.15</td></tr>
+        </tbody>
+      </table>
+      <p class="caption"><span class="cap-num">Table 4.</span> FIDs across design choices (2-step). The numbers in the header denote Post-CFG scales.</p>
+    </div>
+
+    <div class="prose">
+      <p><strong>Interpolation.</strong> Linear interpolation tends to perform better under conditional velocity guidance, whereas trigonometric interpolation achieves lower FIDs under iSD-T.</p>
+      <p><strong>JVP Operation.</strong> We observe that JVP approximation often yields better empirical results than exact computation. The VRAM requirement of the training decreases from <span class="hl">25GB to 18GB</span> on iSD-T, and the training speed improves from <span class="hl">1.48 steps/sec to 4.04 steps/sec</span> on an A100 GPU.</p>
+      <p><strong>Classifier-free Guidance.</strong> Incorporating Pre-CFG improves FIDs compared to the vanilla \(\mathcal L_\text{iSD}\). It also outperforms Post-CFG, which deviates from the intended CFG field, whereas Pre-CFG aligns the flow map with the CFG velocity during training.</p>
+    </div>
+
+    <details class="apx" data-tabs>
+      <summary class="apx-head"><span class="apx-tag">Appendix</span><span class="apx-title">Loss curves, hyperparameters &amp; Pre-CFG variants</span></summary>
+      <div class="apx-body">
+          <div class="tab-list" role="tablist">
+            <button role="tab" aria-selected="true">Loss curves</button>
+            <button role="tab">Hyperparameters</button>
+            <button role="tab">Pre-CFG variants</button>
+            <button role="tab">Pre-CFG for DiT-XL/2</button>
+          </div>
+        <div class="tab-pane" role="tabpanel">
+          <div class="img-row cols-3 wipe">
+            <span class="pw"><img class="pw-bg" src="static/img/plot/Lc_gradnorm_bg.png" alt="" loading="lazy"><img class="pw-fg" src="static/img/plot/Lc_gradnorm.png" alt="Gradient norm of iSD-T" loading="lazy"></span>
+            <span class="pw"><img class="pw-bg" src="static/img/plot/La_CFM_bg.png" alt="" loading="lazy"><img class="pw-fg" src="static/img/plot/La_CFM.png" alt="Flow matching loss of iSD-T" loading="lazy"></span>
+            <span class="pw"><img class="pw-bg" src="static/img/plot/Lb_SD_R_bg.png" alt="" loading="lazy"><img class="pw-fg" src="static/img/plot/Lb_SD_R.png" alt="SD-R loss of iSD-T" loading="lazy"></span>
+          </div>
+          <p class="caption"><span class="cap-num">Figure 10.</span> Gradient norm and loss curves of iSD-T compared to FID10K. FID and the flow matching loss decrease together over training, consistent with the role of velocity estimation in flow map training.</p>
+        </div>
+        <div class="tab-pane" role="tabpanel" hidden>
+          <div class="mini-tables four">
+            <div class="table-wrap"><table class="paper-table compact">
+              <thead><tr><th>\(\epsilon\)</th><th class="num">0.01</th><th class="num">0.005</th><th class="num">0.001</th><th class="num">0.0001</th></tr></thead>
+              <tbody><tr><td>FID</td><td class="num">14.74</td><td class="num">14.62</td><td class="num">15.03</td><td class="num">29.29</td></tr></tbody>
+            </table><p class="sub-caption">JVP approximation step size \(\epsilon\)</p></div>
+            <div class="table-wrap"><table class="paper-table compact">
+              <thead><tr><th>\(\eta\)</th><th class="num">1.0</th><th class="num">0.1</th><th class="num">0.01</th><th class="num">0.001</th><th class="num">0.0001</th></tr></thead>
+              <tbody><tr><td>FID</td><td class="num">14.68</td><td class="num">14.58</td><td class="num">14.62</td><td class="num">14.34</td><td class="num">14.53</td></tr></tbody>
+            </table><p class="sub-caption">Adaptive weighting bias \(\eta\)</p></div>
+            <div class="table-wrap"><table class="paper-table compact">
+              <thead><tr><th>\(p\)</th><th class="num">0.0</th><th class="num">0.5</th><th class="num">1.0</th><th class="num">1.5</th><th class="num">2.0</th></tr></thead>
+              <tbody><tr><td>FID</td><td class="num">31.85</td><td class="num">18.03</td><td class="num">14.62</td><td class="num">13.66</td><td class="num">13.49</td></tr></tbody>
+            </table><p class="sub-caption">Adaptive weighting exponent \(p\)</p></div>
+            <div class="table-wrap"><table class="paper-table compact">
+              <thead><tr><th>NFE</th><th class="num">1</th><th class="num">2</th><th class="num">4</th><th class="num">8</th></tr></thead>
+              <tbody><tr><td>FID</td><td class="num">24.18</td><td class="num">14.62</td><td class="num">14.31</td><td class="num">14.43</td></tr></tbody>
+            </table><p class="sub-caption">Sampling steps (NFE)</p></div>
+          </div>
+          <p class="caption"><span class="cap-num">Table 11.</span> Ablation study for hyperparameters. We set \(\epsilon = 0.005\), \(\eta = 0.01\), \(p=1.0\), and NFE=2 by default. This suggests that the method may not be highly sensitive within a reasonable range of hyperparameters.</p>
+        </div>
+        <div class="tab-pane" role="tabpanel" hidden>
+          <div class="img-row cols-3 wipe">
+            <span class="pw"><img class="pw-bg" src="static/img/plot/Ha_cfg_bg.png" alt="" loading="lazy"><img class="pw-fg" src="static/img/plot/Ha_cfg.png" alt="FIDs of Pre-CFG variants over training steps" loading="lazy"></span>
+            <span class="pw"><img class="pw-bg" src="static/img/plot/Hb_cfg_bg.png" alt="" loading="lazy"><img class="pw-fg" src="static/img/plot/Hb_cfg.png" alt="FIDs of Post-CFG over guidance scales for the variants" loading="lazy"></span>
+            <span class="pw"><img class="pw-bg" src="static/img/plot/Hc_cfg_bg.png" alt="" loading="lazy"><img class="pw-fg" src="static/img/plot/Hc_cfg.png" alt="FIDs over multiplied guidance scales" loading="lazy"></span>
+          </div>
+          <p class="caption"><span class="cap-num">Figure 12.</span> Variants of Pre-CFG. Dashed, dash-dot, and solid lines indicate iSD-U, iSD-C, and iSD-T, respectively. Each color represents a different Pre-CFG scale. Trigonometric interpolation and the JVP approximation are used by default on DiT-B/4. (a) FIDs over training steps. (b) FIDs of Post-CFG over guidance scales. (c) FIDs over multiplied guidance scales. <em>These consistent observations suggest that the effective CFG scale lies near 5.0 in this ablation setting.</em></p>
+        </div>
+        <div class="tab-pane" role="tabpanel" hidden>
+          <div class="table-wrap">
+            <table class="paper-table compact">
+              <thead><tr><th>Post-CFG \(\omega\)</th><th class="num">0.0</th><th class="num">0.5</th><th class="num">1.0</th><th class="num">1.5</th><th class="num">3.0</th><th class="num">5.0</th><th class="num">7.0</th><th class="num">10.0</th></tr></thead>
+              <tbody>
+                <tr><td>FID</td><td class="num">100.89</td><td class="num"><strong>11.19</strong></td><td class="num">16.96</td><td class="num">18.26</td><td class="num">19.33</td><td class="num">25.83</td><td class="num">35.59</td><td class="num">48.50</td></tr>
+                <tr><td>IS</td><td class="num">13.53</td><td class="num">164.48</td><td class="num"><strong>234.85</strong></td><td class="num">229.35</td><td class="num">181.94</td><td class="num">116.25</td><td class="num">85.75</td><td class="num">65.36</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="caption"><span class="cap-num">Table 12.</span> FIDs and ISs across Post-CFG scales for DiT-XL/2 with iSD-T (\(\omega=5.0\), 700K steps). This indicates that <em>the effective Pre-CFG scale may not generalize to larger networks</em>.</p>
+        </div>
+      </div>
+    </details>
+
+    <figure class="reveal" id="reprod">
+      <div class="bars-pair">
+        <div class="bars" id="bars-reprod-fid" data-metric="FID↓ (±σ)"></div>
+        <div class="bars" id="bars-reprod-is" data-metric="IS↑ (±σ)"></div>
+      </div>
+      <figcaption class="caption"><span class="cap-num">Table 5.</span> Comparison on ImageNet with DiT-B/4. 2-step results with standard deviations \(\sigma\) under a controlled setup: the backbone, data, optimization, and training budgets are fixed, while the only difference lies in the training objective. Each method is evaluated using the CFG scale reported as optimal in its work.</figcaption>
+    </figure>
+    <div class="prose">
+      <p><strong>Reproducibility.</strong> Our iSD-T exhibits lower variance across runs compared to the baselines. From a performance perspective, we observe an FID gap with MeanFlow. Thus, a main advantage of iSD-T is more reproducible training outcomes with comparable sample quality.</p>
+    </div>
+
+    <details class="apx" data-tabs>
+      <summary class="apx-head"><span class="apx-tag">Appendix</span><span class="apx-title">Prior work at \(\omega=5.0\)</span></summary>
+      <div class="apx-body">
+        <div class="tab-pane">
+          <div class="apx-split cfg50">
+            <div class="wipe"><span class="pw"><img class="pw-bg" src="static/img/plot/Hd_cfg50_bg.png" alt="" loading="lazy"><img class="pw-fg" src="static/img/plot/Hd_cfg50.png" alt="FIDs of prior work at omega 5.0" loading="lazy"></span></div>
+            <div class="table-wrap">
+              <table class="paper-table compact">
+                <thead><tr><th>Case</th><th class="num">FID↓</th><th class="num">IS↑</th></tr></thead>
+                <tbody>
+                  <tr><td>MeanFlow</td><td class="num">13.12</td><td class="num">220.9</td></tr>
+                  <tr><td>Shortcut Model</td><td class="num">128.7</td><td class="num">6.57</td></tr>
+                  <tr><td>FACM</td><td class="num">26.85</td><td class="num">85.05</td></tr>
+                </tbody>
+              </table>
+              <p class="caption"><span class="cap-num">Table 13.</span> Comparison at \(\omega=5.0\).</p>
+            </div>
+          </div>
+          <p class="caption"><span class="cap-num">Figure 13.</span> FIDs on ImageNet. Solid lines indicate \(\omega=5.0\), and dotted lines indicate the \(\omega\) values in Table 5. Under this setting, the FIDs of MeanFlow and FACM increase relative to their reported scales. For the Shortcut Model, we did not observe stable convergence at larger guidance scales in our setup, and therefore report results using the recommended scale.</p>
+        </div>
+      </div>
+    </details>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================ BIBTEX -->
+<section class="section" id="bibtex">
+  <div class="container is-max-desktop">
+    <div class="bib-head">
+      <h2 class="sec-title">BibTeX</h2>
+      <button class="copy-btn" type="button" data-copy="#bibtex-code"><i class="far fa-copy" aria-hidden="true"></i><span>Copy</span></button>
+    </div>
+    <pre><code id="bibtex-code">@article{kim2026stabilizing,
+  title={Stabilizing Consistency Training: A Flow Map Analysis and Self-Distillation},
+  author={YoungJoong Kim and Duhoe Kim and Woosung Kim and Jaesik Park},
+  journal={Transactions on Machine Learning Research},
+  issn={2835-8856},
+  year={2026},
+  url={https://openreview.net/forum?id=Qx2FrHDVzp},
+  note={}
+}</code></pre>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="container is-max-desktop has-text-centered">
+    <p>This website is adapted from the <a href="https://github.com/nerfies/nerfies.github.io" target="_blank" rel="noopener">Nerfies</a> template, licensed under a <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">Creative Commons Attribution-ShareAlike 4.0 International License</a>.</p>
+  </div>
+</footer>
+
+</body>
+</html>
